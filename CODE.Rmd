@@ -1,0 +1,720 @@
+---
+title: "MA304-Report: 2213548"
+author: "Kamjula Venkata Kautilya Reddy"
+subtitle: Incident Analysis of Dallas for the year 2016
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+
+### Don't delete this setup code chunk from your file
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, comment = NULL)   ## DON'T ALTER THIS: this is to prevent printing the code or any unnecessary addition in your final "html" report file.
+
+```
+
+# Introduction
+
+The issue of racism in policing has been a long-standing concern in the United States, with various organizations working to find ways to measure justice and identify areas where there may be racial disparities. The Center for Policing Equity (CPE) is one such organization that has been actively seeking to address this issue. In order to achieve this goal, it is essential to have a clear understanding of the dataset being used. In this essay, we will examine the findings of the data preparation and cleaning process conducted by CPE.
+
+```{r}
+
+# Load required packages
+
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+#library(ggmap)
+library(knitr)
+library(lubridate)
+library(ggplot2)
+library(ggplot2)
+library(gridExtra)
+library(ggrepel)
+library(corrplot)
+library(plotly)
+library(leaflet)
+library(tidyverse)
+
+```
+
+
+```{r}
+
+# Loading the data 
+df <- read.csv("/Users/kautilyareddy/Desktop/MA 334 Project/37-00049_UOF-P_2016_prepped (1).csv", skip=1)
+
+#head(df)
+#Helps us to find the dimmension of the table
+#kable(dim(df))
+
+```
+
+```{r}
+
+# Drop specified columns from dataframe which maily had no values or were not usefull for our analysis
+df <- select(df, -ForceType2, -ForceType3, -ForceType4, -ForceType5, -ForceType6, -ForceType7, -ForceType8, -ForceType9, -ForceType10, -Cycles_Num)
+
+```
+
+```{r}
+
+#colnames(df)
+
+#str(df)
+
+#Converting the date and time as per our requirement for further use in the anaysis.
+
+df$OCCURRED_D = as.Date(df$OCCURRED_D, format = "%m/%d/%Y")
+df$HIRE_DT = as.Date(df$HIRE_DT, format = "%m/%d/%Y")
+# Convert the values to standard time format
+df$OCCURRED_T <- as.POSIXct(df$OCCURRED_T, format = "%I:%M:%S %p")
+
+# Extract the hour from the OCCURRED_T feature
+df$OCCURRED_T_hour <- hour(df$OCCURRED_T)
+
+# Derive day of week from OCCURRED_D feature
+df$day_of_week <- weekdays(df$OCCURRED_D)
+# Derive day of month from OCCURRED_D feature
+df$day_of_month <- day(df$OCCURRED_D)
+# Extract year from HIRE_DT
+df$year <- format(df$HIRE_DT, "%Y")
+
+```
+
+The dataset provided by CPE consists of 47 features and 2383 observations. However, 10 features were dropped due to missing data, resulting in the final dataset containing 37 features. One of the first steps taken was to convert the occurrence time, occurrence date, and hire date into standard date and time formats. This allowed for the extraction of additional information, such as the hours from time, week day from occurrence date, and year from hire time. It was noted that the data recorded occurrence from the first day of the month of January to the last day of the month of December of 2016.
+
+
+```{r}
+
+# Checks for the number of unique vaules in each column. 
+
+df_1 <- df %>% summarise_all(n_distinct)
+df_1_transposed <- t(df_1)
+df_1_top10 <- head(df_1_transposed, 10,)
+
+```
+
+The study aimed to investigate the justice measure and uncover any potential racial disparities within the system. In order to achieve this goal, a basic rule was established to guide the researchers throughout the project. Specifically, the project only considered features with not more than 30-40 unique values.
+
+This decision was made with the intention of creating visually appealing and informative visualizations that could effectively convey the findings of the study. By limiting the number of unique values, the researchers could ensure that the visualizations would not become cluttered or overwhelming, and would instead be easy for viewers to understand.
+
+Overall, this approach proved to be effective in achieving the project's objectives. The researchers were able to develop visually stunning and informative visualizations that provided valuable insights into the justice system and any potential racial disparities that may exist within it. This is an important contribution to the field of justice studies and has the potential to inform future research and policy decisions.
+
+
+### Officer and Subject analysis based on Gender and Race.
+
+The below section explains the distribution of officers and subject based on the gender involved in handling the case and also the race to which they belong to. 
+
+The chart/graphical representation is being shown below.
+
+```{r}
+
+# Create pie chart for officer gender
+# Define custom color palette
+my_colors <- c("#FFCC66", "#66B2FF")  # Example colors, you can modify as needed
+
+# Create officer gender pie chart
+gender_pie <- ggplot(df, aes(x="", fill=OffSex)) +
+  geom_bar(width=1, stat="count") +
+  coord_polar("y", start=0) +
+  labs(fill="Officer Gender") +
+  theme_void() +
+  ggtitle("Officer Gender")  + theme(plot.title = element_text(hjust = 0.5, size = 16))+  # Increase title font size
+  scale_fill_manual(values = my_colors)  # Set custom color palette
+
+# Add annotation for proportions
+gender_pie <- gender_pie + 
+geom_text(aes(label = ifelse((..count..)/sum(..count..)*100 > 2, paste0(round((..count..)/sum(..count..)*100,1), "%"), "")), 
+            stat = "count", 
+            position = position_stack(vjust = 0.5)) 
+
+
+# Define custom color palette
+my_colors <- c("#FF9999", "#66CC99", "#9999FF", "#FFCC66", "#FF66CC", "#66CCFF")  # Updated color palette
+
+# Create officer race pie chart
+race_pie <- ggplot(df, aes(x="", fill=OffRace)) +
+  geom_bar(width=1, stat="count") +
+  coord_polar("y", start=0) +
+  labs(fill="Officer Race") +
+  theme_void() +
+  ggtitle("Officer Race") +
+  theme(plot.title = element_text(hjust = 0.5, size = 16))+  # Increase title font size
+  scale_fill_manual(values = my_colors) # Set custom color palette
+
+# Add annotation for proportions
+race_pie <- race_pie + 
+geom_text(aes(label = ifelse((..count..)/sum(..count..)*100 > 3, paste0(round((..count..)/sum(..count..)*100,1), "%"), "")), 
+            stat = "count", 
+            position = position_stack(vjust = 0.5))
+
+
+# Combine both pie charts into one grid
+grid.arrange(gender_pie, race_pie, nrow=1)
+
+```
+
+
+```{r}
+
+
+# Define custom color palette
+my_colors <- c( "#9999FF", "#FFCC66")  # Updated color palette
+
+# Group the data by Officers race and gender
+df_counts <- count(df, OffRace, OffSex)
+
+# Create a stacked bar chart
+ggplot(df_counts, aes(x = OffRace, y = n, fill = OffSex)) +
+  geom_col() +
+  labs(title = "Officers Race and Gender") +
+  xlab("Officers Race") +
+  ylab("Number of persons") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = my_colors) + # Set custom color palette
+  theme_minimal()
+
+
+```
+
+Majority if the Law enforcers are men and amongst them White men are forming the majority followed by the Hispanic, Blacks, Asians and Americans. Consistently, we see that female officers are significantly fewer than their male counterparts. 
+
+```{r}
+
+# Define custom color palette
+my_colors <- c("#FF9999", "#66CC99", "#9999FF", "#FFCC66")  # Custom color palette with 4 colors
+
+# Create pie chart for subject gender
+sgender_pie <- ggplot(df, aes(x="", fill=CitSex)) +
+  geom_bar(width=1, stat="count") +
+  coord_polar("y", start=0) +
+  labs(fill="Subject Gender") +
+  theme_void() +
+  ggtitle("Subject Gender") + theme(plot.title = element_text(hjust = 0.5, size = 16))+  # Increase title font size
+  scale_fill_manual(values = my_colors)  # Set custom color palette
+
+# Add annotation for proportions
+sgender_pie <- sgender_pie + 
+geom_text(aes(label = ifelse((..count..)/sum(..count..)*100 > 1, paste0(round((..count..)/sum(..count..)*100,1), "%"), "")), 
+            stat = "count", 
+            position = position_stack(vjust = 0.5))
+
+my_colors <- c("#FF9999", "#66CC99", "#9999FF", "#FFCC66", "#FF66CC", "#66CCFF", "#FF99FF")  # Updated color palette
+
+# Create pie chart for subject race
+srace_pie <- ggplot(df, aes(x="", fill=CitRace)) +
+  geom_bar(width=1, stat="count") +
+  coord_polar("y", start=0) +
+  labs(fill="Subject Race") +
+  theme_void() +
+  ggtitle("Subject Race") + theme(plot.title = element_text(hjust = 0.5, size = 16)) +
+  scale_fill_manual(values = my_colors)  # Set custom color palette
+
+# Add annotation for proportions with geom_label_repel
+srace_pie <- srace_pie + 
+geom_text(aes(label = ifelse((..count..)/sum(..count..)*100 > 1, paste0(round((..count..)/sum(..count..)*100,1), "%"), "")), 
+            stat = "count", 
+            position = position_stack(vjust = 0.5))
+
+# Combine both pie charts into one grid
+grid.arrange(sgender_pie, srace_pie, nrow=1)
+
+```
+
+```{r}
+
+my_colors <- c( "#9999FF", "#FFCC66", "#FF9999", "#66CC99")  # Updated color palette
+
+# Group the data by suject brace and gender
+df_counts <- count(df, CitRace, CitSex)
+# Create a stacked chart
+ggplot(df_counts, aes(x = CitRace, y = n, fill = CitSex)) +
+  geom_col() +
+  labs(title = "Subject Race and Gender") +
+  xlab("Subject Race") +
+  ylab("Number of persons") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = my_colors) + # Set custom color palette
+  theme_minimal()
+
+```
+
+Majority of the Law offenders are males and amongst them Black males making the above 75 percent of the 
+offenders. Hispanics come second followed by Whites. Female offernders are comparitivey less than the males.
+
+Based on the above descriptive statistics and EDA, it was found that the majority of law offenders were males (81%), while females made up only 18% of offenders. On the other hand, the majority of law enforcers were whites at 62%, followed by Hispanics at 20%, and blacks at 14%. The race of the offenders varied, with black offenders being the majority at 56%, followed by Hispanic offenders at 22%, and white offenders at 20%. It is important to note that these findings do not necessarily reflect the overall demographics of the population. 
+
+### Officer and Subject analysis based on Injury status.
+
+```{r}
+# Create pie chart for officer injury with annotations
+
+# Define color palette
+my_colors <- c("#7fcdbb", "#edf8b1")
+
+# Create pie chart for officer injury with annotations
+off_injury <- ggplot(df, aes(x="", fill=OFF_INJURE)) +
+  geom_bar(width=1, stat="count", color="black") +
+  geom_text(aes(label = scales::percent(..count../sum(..count..)), y = ..count..),
+            stat = "count", position = position_stack(vjust = 0.5), color="black") +
+  coord_polar("y", start=0) +
+  labs(title = "                              Subject race and injury in ",fill="Officer injury") +
+  scale_fill_manual(values = my_colors) +  # Set custom color palette
+  theme_void() +
+  theme(legend.position = "bottom")  # Move legend to the bottom
+
+# Create pie chart for subject injury with annotations
+s_injury <- ggplot(df, aes(x="", fill=CIT_INJURE)) +
+  geom_bar(width=1, stat="count", color="black") +
+  geom_text(aes(label = scales::percent(..count../sum(..count..)), y = ..count..),
+            stat = "count", position = position_stack(vjust = 0.5), color="black") +
+  coord_polar("y", start=0) +
+  labs(title = "  use of force incidents",fill="Subject injury") +
+  scale_fill_manual(values = my_colors) +  # Set custom color palette
+  theme_void() +
+  theme(legend.position = "bottom")  # Move legend to the bottom
+
+# Combine both pie charts into one grid
+grid.arrange(off_injury, s_injury, nrow=1)
+
+```
+
+
+The interaction between law enforcers and offenders resulted in almost no injuries to the officers at 90%, while incidence where officers were injured were almost 9 times less at 10%. In contrast, offenders had a large percent of injuries compared to police officers at 26% and 74%, respectively, on interactions with no injuries. 
+
+
+```{r}
+
+
+# Group the data by subject race and injury, and count the number of occurrences
+df_subject_counts <- count(df, CitRace, CIT_INJURE)
+
+# Group the data by officer race and injury, and count the number of occurrences
+df_officer_counts <- count(df, OffRace, CIT_INJURE)
+
+# Create a stacked chart for subject race
+chart_subject <- ggplot(df_subject_counts, aes(x = CitRace, y = n, fill = CIT_INJURE)) +
+  geom_col() +
+  theme_minimal() +
+  labs(title = "Subject race vs Subject injury") +
+  xlab("Subject race") +
+  ylab("Number of incidents") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+# Create a stacked chart for officer race
+chart_officer <- ggplot(df_officer_counts, aes(x = OffRace, y = n, fill = CIT_INJURE)) +
+  geom_col() +
+    theme_minimal() +
+  labs(title = "Officer race vs Subject injury") +
+  xlab("Officer race") +
+  ylab("Number of incidents") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+grid.arrange(chart_subject, chart_officer, nrow=1)
+
+```
+
+The Blacks forms the largest share of the Law offenders and account for the most injuries. The White offenders has a lesser population than the Hispanics yet has the a bigger share of injuries. The Blacks offenders suffer the most in injuries followed by Whites and then Hispanics. The imbalance in terms of the distribution of police officers according to race needs some correction to ensure that the injuries and not racial motivated.
+
+The Whites account for the largest number of police officers with the leading number of police injuries being trailed by the Hispanics and Blacks after the whites.
+
+
+### Offences on weekly basis
+
+```{r}
+
+
+# Define custom color palette with 7 colors
+my_colors <- c("#7fcdbb", "#edf8b1", "#2c7fb8", "#c7e9b4", "#225ea8", "#a1d99b", "#fdae61")
+
+# Create bar plot for Cycles_Num with custom color palette and light theme background
+ggplot(df, aes(x = day_of_week, fill = day_of_week)) +
+  geom_bar() +
+  scale_fill_manual(values = my_colors) +  # Set custom color palette
+  xlab('Day of Week') +
+  ylab('Count') +
+  labs(title = 'Bar Plot of Day of Week') +  # Add title
+ theme_minimal() +
+  theme(axis.title = element_text(size = 14)) +
+  theme(axis.text = element_text(size = 12)) +
+  theme(plot.title = element_text(size = 18, hjust = 0.5)) +
+  theme(legend.key = element_blank())
+
+
+```
+
+The study found that most offences occurred over the weekend, with Sunday being the peak day. During weekdays, Friday had the most offenses, while Monday had the least. Thursdays, Tuesdays, and Wednesdays were relatively equal. 
+
+### Reason behind the force application 
+
+```{r}
+# Define plot grid layout
+layout(matrix(c(1, 2), nrow = 1, byrow = TRUE))
+# UOF_REASON, OFF_INJURE,CIT_INJURE
+
+# Create bar plot for UOF_REASON
+
+# Define custom color palette with 12 colors
+my_colors <- c("#FFB447", "#67C2E8", "#6BBB58", "#D55E00", "#F781BF", "#4DBEEE",
+               "#6E8B3D", "#E69F00", "#56B4E9", "#B07AA1", "#FFA07A", "#8DD3C7")
+
+ggplot(df, aes(x = UOF_REASON, fill = UOF_REASON)) +
+  geom_bar(show.legend = FALSE) +  # Remove the legend
+  theme(axis.text.y = element_text(angle = 0, hjust = 1)) +
+  xlab("Reason for Force") +
+  ylab("Count") +
+  labs(title = "Bar Plot of Reason for Force") +
+  scale_fill_manual(values = my_colors) +
+  theme_minimal() +
+  theme(axis.title = element_text(size = 14)) +
+  theme(axis.text = element_text(size = 12)) +
+  theme(plot.title = element_text(size = 18, hjust = 0.5)) +
+  coord_flip()
+
+```
+
+```{r}
+# Group the data by UOF_REASON and Officer_inj, and count the number of occurrences
+df_counts <- count(df, UOF_REASON, CitRace)
+
+# Create a stacked chart
+ggplot(df_counts, aes(x = UOF_REASON, y = n, fill = CitRace)) +
+  geom_col() +
+  labs(title = "Reasons for use of force on Subject Race")+
+  theme_minimal() +
+  xlab("Reason for use of force") +
+  ylab("Number of incidents") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+While the Black form the majority of the law breakers, they lead in all the offences. The most common reason for the use of force by law enforcers was arrest, followed by active aggression, danger to others, and weapon display.
+
+```{r}
+# Group the data by UOF_REASON and Officer_inj, and count the number of occurrences
+df_counts <- count(df, UOF_REASON, OffRace)
+
+# Create a stacked chart
+ggplot(df_counts, aes(x = UOF_REASON, y = n, fill = OffRace)) +
+  geom_col() +
+  theme_minimal()+
+  labs(title = "Reasons for use of force on Officer Race") +
+  xlab("Reason for use of force") +
+  ylab("Number of incidents") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+White officers who form the majority maintain the same distribution in the reasons for use of force.
+
+
+```{r}
+
+
+# Group the data by UOF_REASON and Officer_inj, and count the number of occurrences
+df_counts <- count(df, SERVICE_TY,OFF_INJURE)
+
+# Create a stacked chart
+ggplot(df_counts, aes(x = SERVICE_TY, y = n, fill = OFF_INJURE)) +
+  geom_col() +
+  theme_minimal()+
+  labs(title = "Service type and officer injury") +
+  xlab("Service type") +
+  ylab("Number of incidents") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Arrest, Active Aggression and Detention Frisk are the leading causes of injuries against 
+Officers. Therefore , more training should be offered on this services to enhance police safety.
+
+Similarly, the common service types that result in subjects injuries include; Arrest, Service Call, call for cover and off-duty accidents. More Training should be offered on this services to enhance subjects' safety.
+
+### Division based analysis of incidents
+
+```{r}
+
+df_category <- sort(table(df$DIVISION),decreasing = TRUE)
+df_category <- data.frame(df_category)
+colnames(df_category) <- c("Category", "Frequency")
+df_category$Percentage <- df_category$Frequency / sum(df_category$Frequency)*100
+
+kable(df_category)
+
+
+bp<-ggplot(df_category, aes(x="", y=Percentage, fill=Category)) + geom_bar(stat="identity") 
+pie <- bp + coord_polar("y") +
+  theme_minimal()
+pie
+
+```
+
+
+The Central part of the city had registered the most number of crimes with about 23.77 % whereas Northwest had been quiet good in terms of saftey for the people to reside as it recorded only around 8.1 % crimes.
+
+### Occurance of incicent 
+
+```{r}
+
+# Create a boxplot of the OCCURRED_T_hour variable
+boxplot(df$OCCURRED_T_hour, main = "Distribution of hour of arrest")
+
+```
+
+The above plot suggests that at around 3:00 pm in the afternoon there are most number of arrests suggesting that the most number of crimes take place around the same time too.
+
+
+```{r}
+
+# Create a histogram of OCCURRED_T_hour
+ggplot(data = df, aes(x = OCCURRED_T_hour)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "#fa9fb5") +
+  labs(title = "Distribution of hours",
+       x = "Hour of the day",
+       y = "Count" + theme_minimal())+
+  theme_minimal()
+
+```
+
+### State of Subject during the incident and ouccurance of crime
+
+```{r}
+
+# Create violin plot
+
+# Set the color palette
+my_palette <- c("#FFB447", "#67C2E8")
+
+# Create the plot
+ggplot(df, aes(x = CIT_INFL_A, y = OCCURRED_T_hour)) +  
+  geom_violin(fill = my_palette[1], color = my_palette[2], alpha = 0.8) +
+  theme_minimal() + # Use minimal theme
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Violin Plot of Subject description against Hour of the day", 
+       x = "Subject description", 
+       y = "Hour of the day", 
+       fill = NULL, 
+       color = NULL) +
+  scale_fill_manual(values = my_palette) + # Set fill color
+  scale_color_manual(values = my_palette) + # Set border color
+  theme(plot.title = element_text(size = 18, hjust = 0.5), # Title size and alignment
+        axis.title = element_text(size = 14), # Axis title size
+        axis.text = element_text(size = 12), # Axis text size
+        legend.position = "none") # Remove legend +
+
+
+```
+
+Most alcohol and alcohol and unknown drugs offences occurred at from 3:00 pm in the afternoon to 5:00 am in the morning. FD motor vehicle offences occurred 7:00 am in the morning to 8:00 pm in the evening. Marijuana, weapons-related offences and mentally unstable offences occurred almost equally through the day and night. Unknown drugs offences occurred mostly from 10:00 am to 10:00 pm in the evening.
+In general, most offenses occurred between 3:00 pm and 4:00 am, while the period between 5:00 am and 10:00 am had the least crime incidence.
+
+
+```{r}
+
+# Select only numeric columns
+
+df$OCCURRED_T_hour<-as.integer(df$OCCURRED_T_hour)
+numeric_df <- df[c('INCIDENT_DATE_LESS_','day_of_month')]
+
+# Create pair plots
+pairs(numeric_df)
+```
+                      
+The pair plots shows that crime rate are frequent within the first ten days of the month.As a result, resources should be more forced on these periods of the month. Additionally, most officers who hold 0-10 years experience would be more effective .
+
+```{r}
+
+df$year <-as.integer(df$year)
+# Correlation Analysis
+c_df<-df[c('year','OCCURRED_T_hour', 'day_of_month','INCIDENT_DATE_LESS_' )]
+corr <- cor(c_df,use = "pairwise.complete.obs")
+kable(corr)
+# # Calculate the correlation matrix
+corrplot(corr)
+
+```
+
+There is in no correlation between the year an officer was hired with crimes in the day of the month and hour of occurrence. However, there was a strong correlation between the hire of year and the years of services (INCIDENT_DATELESS).
+Lastly, there was no correlation found between the year an officer was hired and crimes in the day of the month and hour of occurrence. However, a strong correlation was found between the year of hire.
+
+
+### Officers expericence analyis with respect to Subject
+```{r}
+
+ ggplot() +
+  aes(x = df$INCIDENT_DATE_LESS_) +
+  geom_density(adjust = 1L, fill = "#BEADF1") +
+  labs(
+    x = "Years",
+    y = "Density",
+    title = "Years of Service of Officers"
+  ) +
+  theme_minimal()
+```
+
+The above graph inferres that majority of the officers have severed for around 5-10 years. Furthermore, as the years of experience goes high the number of officers in service seems less. Evidently, it can be conclude that most of the cases are handled by officers with experience less than 10 years.
+
+```{r}
+
+# Create density plot
+ggplot(df, aes(x = INCIDENT_DATE_LESS_, fill = CIT_INJURE)) + 
+  geom_density(alpha = 0.5)+
+  labs(title = "Years of experience vs Subject Injury", x = "officer's years of service", y = "Subject injury")+
+  theme_minimal()
+
+```
+
+The data set also revealed that officers with less than five years of service and more than 20 years are less likely to cause injury to offenders compared to officers with between 5 to 15 years of service. 
+
+
+```{r}
+
+# Create density plot
+ggplot(df, aes(x = OCCURRED_T_hour, fill = CIT_INJURE)) + 
+  geom_density(alpha = 0.5)+
+  labs(title = "Occurrences by hour vs Subject injury", x = "Hour of day", y = "Subject injury")+
+  theme_minimal()
+
+#colnames(df)
+
+
+```
+
+Most injuries against offenders are likely to occur between 4:00 am 7:00 am and from 11:00 pm to 3:00 pm in the afternoon.
+
+```{r}
+# Create density plot
+ggplot(df, aes(x = OCCURRED_T_hour, fill = OFF_INJURE)) + 
+  geom_density(alpha = 0.5)+
+  labs(title = "Occurrences by hour vs Officer Injury", x = "Hour of day", y = "Officer injury")+
+  theme_minimal()
+```
+
+Most injuries against police officers are likely to occur between 5:00 am to 1:00 pm in the afternoon.
+
+The above analysis suggests that the offices have to be cautions while handiling the offernders as they could ending injuring them or injuring themselves.
+
+### Interactive Plots suggesting the occurance of crimes.
+
+
+```{r}
+
+# Create a summary table of occurrence counts by date
+occurrence_by_date <- aggregate(OCCURRED_T_hour ~ OCCURRED_D, data = df, FUN = length)
+
+# Create the line graph
+
+# Create a dataframe with occurrence counts by date
+occurrence_counts <- data.frame(date = sort(unique(df$OCCURRED_D)),
+                                count = sapply(sort(unique(df$OCCURRED_D)), 
+                                               function(d) sum(df$OCCURRED_D == d)))
+
+# Create the line graph with a smoothed trendline
+p <- ggplot(data = occurrence_counts, aes(x = date, y = count)) +
+ geom_line(color = "#af8dc3")  +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Occurrences by Date",
+       x = "Date",
+       y = "Occurrence Count")+
+  theme_minimal()
+
+ggplotly(p)
+
+df<- na.omit(df)
+
+```
+
+
+With the above time series analysis the general trend throughout the year is that, crime rates decline towards the end of the year. 
+
+The graph shows the crime distribution per day throughout the year. Some days seems to have abnormally high crime rates and might be attributed to demonstrations that result in mass arrest.
+
+```{r}
+
+# Create a summary table of occurrence counts by date
+occurrence_by_date <- aggregate(OCCURRED_T_hour ~ OCCURRED_D, data = df, FUN = length)
+occurrence_by_date$cumulative_sum <- cumsum(occurrence_by_date$OCCURRED_T_hour)
+
+# Create the line graph with ggplot
+p <- ggplot(data = occurrence_by_date, aes(x = OCCURRED_D, y = cumulative_sum)) +
+  geom_line() +
+  labs(title = "Cumulative crime cases by Date", x = "Date", y = "Cumulative Sum")+
+  theme_minimal()
+
+# Create an interactive version of the plot using plotly
+ggplotly(p)
+
+```
+
+The slope of the curve of the cumulative crime rates across the years show that towards the end of the year, crime cases tend to slow down. This make life easier for the law enforcers and the people are said to be comparitively safer during the end of the year.
+
+```{r}
+# Create a summary table of occurrence counts by date
+occurrence_by_date <- aggregate(OCCURRED_T_hour ~ OCCURRED_D, data = df, FUN = length)
+occurrence_by_date$cumulative_sum <- cumsum(occurrence_by_date$OCCURRED_T_hour)
+
+# Create the line graph with ggplot and add smoothing
+p <- ggplot(data = occurrence_by_date, aes(x = OCCURRED_D, y = cumulative_sum)) +
+  geom_line() +
+  stat_smooth(method = "loess", se = FALSE) +
+  labs(title = "Cumulative Sum of Occurrences by Date", x = "Date", y = "Cumulative Sum")+
+  theme_minimal()
+
+# Create an interactive version of the plot using plotly
+ggplotly(p)
+
+```
+
+The graph displays the actual cumulative crime rates against crime rates a rising from smoothing.The derivative line allow for extrapolation and forecasting of crime rates. 
+
+### Map of incident occurance place
+
+```{r}
+
+map <- leaflet() %>%
+  setView(lng = -96.7969, lat = 32.7767, zoom = 11)
+
+# Add a basemap
+map <- addProviderTiles(map, "CartoDB.Positron")
+
+#summary(df[c("Longitude", "Latitude")])
+
+
+# Remove rows with missing longitude and latitude values
+df_missing <- df[complete.cases(df[c("Longitude", "Latitude")]), ]
+
+# summary(df_missing[c("Longitude", "Latitude")])
+
+# Add the incident locations as markers
+map <- addMarkers(map, lng = df$Longitude, lat = df$Latitude)
+map
+```
+
+The above maps depicts where the precise places of the crimes were reported. We have also further creeated a scatter plot to help us undersatnd the where what gender of people are commiting more crimes. 
+
+```{r}
+
+# Create a plot with the coordinates as dots, differentiating by CitSex
+ggplot(df, aes(x = Longitude, y = Latitude, color = CitSex)) +
+  geom_point(alpha = 0.5) +
+  xlim(range(df$Longitude)) +
+  ylim(range(df$Latitude)) +
+  labs(title = "Crime Occurrence in Dallas, Texas by Gender",
+       x = "Longitude", y = "Latitude",
+       color = "Gender") +
+  scale_color_discrete(name = "Gender",
+                       labels = c("Female", "Male")) +
+  theme_minimal()
+
+```
+
+
+# Conclusion
+
+The analysis of the dataset provided by The Center for Policing Equity (CPE) has revealed several insights into the patterns and trends of policing and law enforcement in the United States. The findings show that there is a significant gender and racial disparity between law enforcers and offenders, with males and white individuals being overrepresented in terms of law enforcement in the dataset. Hiring more female officers could help the department to use them while handling any female offenders. With the crimes reported over the weekend being higher, it is advisable to incorporate more number of the law enforcers on these days. It would be great if the department also looked at the time and place where most of the offences occurred.
+Additionally, there is a high occurrence of alcohol and drug-related offenses, which tend to happen in the late afternoon to early morning hours. Furthermore, the analysis highlights the importance of retraining for law enforcement officers, as those between 15 to 20 years of service were more likely to cause injury to offenders. The use of force was most often used during arrests and when dealing with active aggression or danger to others. The insights gained from this analysis can help inform policy decisions aimed at reducing racial disparities in policing and improving training and support for law enforcement officers. However, further research is needed to fully understand the complex and multifaceted nature of policing and its impact on society.
+
+
+
